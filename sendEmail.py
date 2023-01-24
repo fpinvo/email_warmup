@@ -242,6 +242,18 @@ def send_message_thread(service, destination, subject, body, thread_id,msg_id_3)
       userId="me",
       body=create_thread_message(destination,subject, body, True, thread_id, msg_id_3)
     ).execute()
+
+def get_msg_id_header(serivce,email_id):
+    data = dict()
+    msg = service.users().messages().get(userId="me", id=email_id, format="full").execute()
+    data['snippet'] = msg['snippet']
+    headers = msg['payload'].get("headers")
+#     print(headers)
+    for header in headers:
+        if header['name'] == 'Message-ID':
+            data['Message-ID'] = header.get("value") 
+            return data
+    return None
     
 if __name__ == '__main__':
     main()
