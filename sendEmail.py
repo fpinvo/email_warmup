@@ -243,16 +243,27 @@ def send_message_thread(service, destination, subject, body, thread_id,msg_id_3)
       body=create_thread_message(destination,subject, body, True, thread_id, msg_id_3)
     ).execute()
 
-def get_msg_id_header(service,email_id):
+def get_msg_id_header(serivce,email_id):
     data = dict()
     msg = service.users().messages().get(userId="me", id=email_id, format="full").execute()
-    data['snippet'] = msg['snippet']
-    headers = msg['payload'].get("headers")
-#     print(headers)
-    for header in headers:
-        if header['name'] == 'Message-ID':
-            data['Message-ID'] = header.get("value") 
-            return data
+    if msg:
+        data['snippet'] = msg['snippet']
+        headers = msg['payload'].get("headers")
+    #     print(headers)
+        for header in headers:
+            if header['name'] == 'Message-ID':
+                data['Message-ID'] = header.get("value")
+            if header['name'] == 'From':
+                data['From'] = header.get("value")
+            if header['name'] == 'To':
+                data['To'] = header.get("value")
+            if header['name'] == 'Subject':
+                data['Subject'] = header.get("value")
+            if header['name'] == 'Date':
+                data['Date'] = header.get("value")
+            if header['name'] == 'Content-Type':
+                data['Content-Type'] = header.get("value")
+        return data
     return None
     
 if __name__ == '__main__':
