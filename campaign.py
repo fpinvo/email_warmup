@@ -43,10 +43,15 @@ class Campaign:
         
     
     def func1(self):
+        source_camp = self.check_source_campaign()
         service = self.sendEmail()
-        if self.check_source_campaign():
-            pass
-            # sendEmail.send_message_thread(service, self.source_email[0][2], self.subject,self.Body, thread_id, msg_id_1)
+        if source_camp:
+            result = self.data.select_all("Select * from gmailThreadId where id ="+str(source_camp[0][5]))
+            message = sendEmail.get_msg_id_header(service,str(result[0][1]))
+            print("message",str(result[0][1]))
+            print(message)
+            print(self.source_email[0][2], self.subject,self.Body, str(result[0][2]), str(message['Message-Id']))
+            sendEmail.send_message_thread(service, self.source_email[0][2], self.subject,self.Body, str(result[0][2]), str(message['Message-Id']))
         else:
             sendEmail.send_message(service, 'farhan.pirzada@invozone.com',self.subject,self.Body)
             print("Message sent")

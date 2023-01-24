@@ -36,62 +36,63 @@ def check_token(tb_name,email):
     return db.select_all("Select * from "+tb_name+" where email = '"+email+"'")
     
 
-def main(tb_name,email):
-    global our_email,source_email_data 
-    """Shows basic usage of the Gmail API.
-    Lists the user's Gmail labels.
-    """
-    creds = None
-    # The file token.json stores the user's access and refresh tokens, and is
-    # created automatically when the authorization flow completes for the first
-    # time.
-    print(email)
-    source_email_data = check_token(tb_name,email)
-    target_email_data = check_token('target','farhan.pirzada@invozone.com')
-    our_email = source_email_data[0][2]
-    if source_email_data[0][7]:
-        # db.execute("Update source set token ="+ +"")
-        creds = Credentials.from_authorized_user_file(str(source_email_data[0][7]), SCOPES)
-    # if os.path.exists('token.json'):
-    #     creds = Credentials.from_authorized_user_file('token.json', SCOPES)
-    # If there are no (valid) credentials available, let the user log in.
-    if not creds or not creds.valid:
-        if creds and creds.expired and creds.refresh_token:
-            creds.refresh(Request())
-        else:
-            flow = InstalledAppFlow.from_client_secrets_file(
-                'credentials.json', SCOPES)
-            creds = flow.run_local_server(port=0)
-        # Save the credentials for the next run
-        # with open('token.json', 'w') as token:
-        #     print(" file token.json stores")
-        #     print(creds.to_json())
-        #     token.write(creds.to_json())
-        print("updating the db")
-        print("UPDATE source SET token ='"+creds.to_json()+"' where email ='"+email+"'")
-        db.execute("Insert source values('"+creds.to_json()+"' where email ='"+email+"'")
+# def main(tb_name,email):
+#     global our_email,source_email_data,target_email_data
+#     """Shows basic usage of the Gmail API.
+#     Lists the user's Gmail labels.
+#     """
+#     creds = None
+#     # The file token.json stores the user's access and refresh tokens, and is
+#     # created automatically when the authorization flow completes for the first
+#     # time.
+#     print(email)
+#     source_email_data = check_token(tb_name,email)
+#     target_email_data = check_token('target','farhan.pirzada@invozone.com')
+#     print(target_email_data)
+#     our_email = source_email_data[0][2]
+#     if source_email_data[0][7]:
+#         # db.execute("Update source set token ="+ +"")
+#         creds = Credentials.from_authorized_user_file(str(source_email_data[0][7]), SCOPES)
+#     # if os.path.exists('token.json'):
+#     #     creds = Credentials.from_authorized_user_file('token.json', SCOPES)
+#     # If there are no (valid) credentials available, let the user log in.
+#     if not creds or not creds.valid:
+#         if creds and creds.expired and creds.refresh_token:
+#             creds.refresh(Request())
+#         else:
+#             flow = InstalledAppFlow.from_client_secrets_file(
+#                 'credentials.json', SCOPES)
+#             creds = flow.run_local_server(port=0)
+#         # Save the credentials for the next run
+#         # with open('token.json', 'w') as token:
+#         #     print(" file token.json stores")
+#         #     print(creds.to_json())
+#         #     token.write(creds.to_json())
+#         print("updating the db")
+#         print("UPDATE source SET token ='"+creds.to_json()+"' where email ='"+email+"'")
+#         db.execute("Insert source values('"+creds.to_json()+"' where email ='"+email+"'")
         
 
-    try:
-        # Call the Gmail API
-        service = build('gmail', 'v1', credentials=creds)
-        results = service.users().labels().list(userId='me').execute()
-        labels = results.get('labels', [])
+#     try:
+#         # Call the Gmail API
+#         service = build('gmail', 'v1', credentials=creds)
+#         results = service.users().labels().list(userId='me').execute()
+#         labels = results.get('labels', [])
 
-        if not labels:
-            print('No labels found.')
-            return
-        print('Labels:')
-        for label in labels:
-            print(label['name'])
+#         if not labels:
+#             print('No labels found.')
+#             return
+#         print('Labels:')
+#         for label in labels:
+#             print(label['name'])
 
-    except HttpError as error:
-        # TODO(developer) - Handle errors from gmail API.
+#     except HttpError as error:
+#         # TODO(developer) - Handle errors from gmail API.
 
-        print(f'An error occurred: {error}')
+#         print(f'An error occurred: {error}')
 
 def authenticate_user(tb_name,email):
-    global our_email,source_email_data 
+    global our_email,source_email_data,target_email_data 
     creds = None
     print(email)
 
@@ -173,11 +174,8 @@ def send_message(service, destination, obj, body, attachments=[]):
     print(F'Message Id: {send_message["id"]}')
     # send_message["id"]
     # send_message["threadId"]
-    print("Insert into gmailThreadId values(NULL,'"+str(send_message["id"])+"','"+str(send_message["threadId"])+"','"+str(source_email_data[0][0])+"')")
-    db.execute("Insert into gmailThreadId values(NULL,'"+str(send_message["id"])+"','"+str(send_message["threadId"])+"','"+str(source_email_data[0][0])+"')")
-    print(db.cursor_.lastrowid)
-    print("Insert into campaign values(NULL,'"+target_email_data[0][0]+"','"+datetime.datetime.now()+"','"+datetime.datetime.now()+"','"+db.cursor_.lastrowid+"','"+source_email_data[0][0]+"'")
-    db.execute("Insert into campaign values(NULL,'"+target_email_data[0][0]+"','"+datetime.datetime.now()+"','"+datetime.datetime.now()+"','"+db.cursor_.lastrowid+"','"+source_email_data[0][0]+"'")
+    db.commit("Insert into gmailThreadId values (NULL,'"+str(send_message["id"])+"','"+str(send_message["threadId"])+"','"+str(source_email_data[0][0])+"')",[])
+    db.commit("Insert into campaign values (NULL,'"+str(target_email_data[0][0])+"','"+str(datetime.datetime.now())+"','"+str(datetime.datetime.now())+"',1,'"+str(db.cursor_.lastrowid)+"','"+str(source_email_data[0][0])+"')",[])
     return send_message
 
 
@@ -243,22 +241,22 @@ def send_message_thread(service, destination, subject, body, thread_id,msg_id_3)
       body=create_thread_message(destination,subject, body, True, thread_id, msg_id_3)
     ).execute()
 
-def get_msg_id_header(serivce,email_id):
+def get_msg_id_header(service,email_id):
     data = dict()
     msg = service.users().messages().get(userId="me", id=email_id, format="full").execute()
     if msg:
         data['snippet'] = msg['snippet']
         headers = msg['payload'].get("headers")
-    #     print(headers)
+        print(headers)
         for header in headers:
-            if header['name'] == 'Message-ID':
-                data['Message-ID'] = header.get("value")
-            if header['name'] == 'From':
-                data['From'] = header.get("value")
-            if header['name'] == 'To':
-                data['To'] = header.get("value")
-            if header['name'] == 'Subject':
-                data['Subject'] = header.get("value")
+            if header['name'] == 'Message-Id':
+                data['Message-Id'] = header.get("value")
+            if header['name'] == 'from':
+                data['from'] = header.get("value")
+            if header['name'] == 'to':
+                data['to'] = header.get("value")
+            if header['name'] == 'subject':
+                data['subject'] = header.get("value")
             if header['name'] == 'Date':
                 data['Date'] = header.get("value")
             if header['name'] == 'Content-Type':
@@ -267,7 +265,7 @@ def get_msg_id_header(serivce,email_id):
     return None
     
 if __name__ == '__main__':
-    main()
+    # main()
     # get the Gmail API service
 
     service = authenticate_user() 
