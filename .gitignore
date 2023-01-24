@@ -1,0 +1,10 @@
+data/
+venv/
+test/
+*.env
+*.DS_Store
+token.json
+token.pickle
+Archive.zip
+__pycache__/
+credentials.json
