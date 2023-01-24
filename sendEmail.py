@@ -188,14 +188,6 @@ def show_chatty_threads():
     for guides on implementing OAuth2 for the application.
     """
     try:
-        # create gmail api client
-        service = authenticate_user()
-
-        # pylint: disable=maybe-no-member
-        # pylint: disable:R1710
-        # messages = service.users().messages().list(userId='me').execute().get('messages', [])
-        # print(messages)
-
         threads = service.users().threads().list(userId='me').execute().get('threads', [])
         print(threads)
 #         for thread in threads:
@@ -249,21 +241,22 @@ def get_msg_id_header(service,email_id):
         headers = msg['payload'].get("headers")
         print(headers)
         for header in headers:
-            if header['name'] == 'Message-Id':
-                data['Message-Id'] = header.get("value")
-            if header['name'] == 'from':
-                data['from'] = header.get("value")
-            if header['name'] == 'to':
-                data['to'] = header.get("value")
-            if header['name'] == 'subject':
-                data['subject'] = header.get("value")
+            if header['name'] == 'Message-ID' or "Message-Id":
+                data['Message-ID'] = header.get("value")
+            if header['name'] == 'From' or 'from':
+                data['From'] = header.get("value")
+            if header['name'] == 'To' or 'to':
+                data['To'] = header.get("value")
+            if header['name'] == 'Subject' or 'subject':
+                data['Subject'] = header.get("value")
             if header['name'] == 'Date':
                 data['Date'] = header.get("value")
             if header['name'] == 'Content-Type':
                 data['Content-Type'] = header.get("value")
         return data
     return None
-    
+
+
 if __name__ == '__main__':
     # main()
     # get the Gmail API service
