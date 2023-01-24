@@ -243,7 +243,7 @@ def send_message_thread(service, destination, subject, body, thread_id,msg_id_3)
       body=create_thread_message(destination,subject, body, True, thread_id, msg_id_3)
     ).execute()
 
-def get_msg_id_header(serivce,email_id):
+def get_msg_id_header(service,email_id):
     data = dict()
     msg = service.users().messages().get(userId="me", id=email_id, format="full").execute()
     data['snippet'] = msg['snippet']
