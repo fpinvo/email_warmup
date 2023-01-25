@@ -39,7 +39,7 @@ class Campaign:
     def sendEmail(self):
         sendEmail.our_email = self.target_email
         # sendEmail.main("source",self.source_email[0][2])
-        return sendEmail.authenticate_user("source",self.source_email[0][2]) 
+        return sendEmail.get_user_service(self.source_email[0][2]) 
         
     
     def func1(self):
@@ -80,9 +80,11 @@ if __name__ == "__main__":
     # run.json_to_db('target')
     ##  target email address
     try:
-        camp.check_source_campaign()
-        loop = asyncio.get_event_loop()
-        loop.run_until_complete(camp.main())
+        # camp.check_source_campaign()
+        # loop = asyncio.get_event_loop()
+        # loop.run_until_complete(camp.main())
+        # import pdb; pdb.set_trace()
+        camp.func1()
     except Exception as e:
         print(e)
     

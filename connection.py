@@ -35,7 +35,7 @@ class SQL_Base(object):
     def __select(self, query, parameters):
         return self.__execute(query, parameters)
     
-    def commit(self, query, parameters):
+    def commit(self, query, parameters=[]):
         self.__execute(query, parameters)
         return self.connection.commit()
     

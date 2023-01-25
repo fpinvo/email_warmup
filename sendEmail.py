@@ -22,6 +22,7 @@ from email.mime.base import MIMEBase
 from mimetypes import guess_type as guess_mime_type
 from connection import Warmup_data
 import datetime
+import traceback
 
 # Request all access (permission to read/send/receive emails, manage the inbox, and more)
 SCOPES = ['https://mail.google.com/']
@@ -34,7 +35,20 @@ target_email_data = None
 
 def check_token(tb_name,email):
     return db.select_all("Select * from "+tb_name+" where email = '"+email+"'")
-    
+
+def create_token(table_name, email, pickled_creds, esp='gmail'):
+    time = datetime.datetime.now()
+    query = f'INSERT INTO {table_name} (email, e_type, pickle, create_at) VALUES ("{email}", "{esp}", {pickled_creds}, "{time}");'
+    print(f'create_token:::::{query}::::')
+    db.commit(query)
+
+def update_token(table_name, email, pickled_data):
+    time = datetime.datetime.now()
+    query = f'UPDATE {table_name} SET pickle = {pickled_data}, update_at = "{time}" WHERE email = "{email}";'
+    print(f'update_token:::::{query}::::')
+    db.commit(query) 
+
+        
 
 # def main(tb_name,email):
 #     global our_email,source_email_data,target_email_data
@@ -91,35 +105,86 @@ def check_token(tb_name,email):
 
 #         print(f'An error occurred: {error}')
 
-def authenticate_user(tb_name,email):
-    global our_email,source_email_data,target_email_data 
+def authenticate_user(email_obj):
+    # global our_email,source_email_data,target_email_data 
     creds = None
-    print(email)
+    print(email_obj)
 
-    source_email_data = check_token(tb_name,email)
-    target_email_data = check_token('target','farhan.pirzada@invozone.com')
-    our_email = source_email_data[0][2]
-    # the file token.pickle stores the user's access and refresh tokens, and is
-    # created automatically when the authorization flow completes for the first time
-    if os.path.exists("token.pickle"):
-        with open("token.pickle", "rb") as token:
-            creds = pickle.load(token)
-            print("file token.pickle")
-            print(creds)
-    # if there are no (valid) credentials availablle, let the user log in.
-    if not creds or not creds.valid:
-        if creds and creds.expired and creds.refresh_token:
-            creds.refresh(Request())
+    # source_email_data = check_token(tb_name,email)
+    # target_email_data = check_token('target','farhan.pirzada@invozone.com')
+    # our_email = source_email_data[0][2]
+    # # the file token.pickle stores the user's access and refresh tokens, and is
+    # # created automatically when the authorization flow completes for the first time
+    # if os.path.exists("token.pickle"):
+    #     with open("token.pickle", "rb") as token:
+    #         creds = pickle.load(token)
+    #         print("file token.pickle")
+    #         print(creds)
+    # # if there are no (valid) credentials availablle, let the user log in.
+    # if not creds or not creds.valid:
+    #     if creds and creds.expired and creds.refresh_token:
+    #         creds.refresh(Request())
+    #     else:
+    flow = InstalledAppFlow.from_client_secrets_file('credentials.json', SCOPES)
+    creds = flow.run_local_server(port=0)
+    # save the credentials for the next run
+    with open("token.pickle", "wb") as token:
+        pickle.dump(creds, token)
+    # return build('gmail', 'v1', credentials=creds)
+    service = build('gmail', 'v1', credentials=creds)
+    try:
+        email = email_obj[0][2]
+        token = email_obj[0][6]
+        if token:
+            print('Token found')
+        breakpoint()
+        # store authenticated user token to DB
+        with open('token.pickle', 'rb') as file:
+            user_data = file.read()
+        if token:
+            print('update_token_call')
+            update_token('source', email, user_data)
         else:
-            flow = InstalledAppFlow.from_client_secrets_file('credentials.json', SCOPES)
-            creds = flow.run_local_server(port=0)
-            
-        # save the credentials for the next run
-        # with open("token.pickle", "wb") as token:
-        #     print("file token.pickle stores")
-        #     print(creds, token)
-        #     pickle.dump(creds, token)
-    return build('gmail', 'v1', credentials=creds)
+            create_token('source', email, user_data)
+        return service
+    except Exception as e:
+        print(e)
+        traceback.print_exc()
+
+
+def create_service(creds):
+    try:
+        if not creds.valid:
+            if creds and creds.expired and creds.refresh_token:
+                    creds.refresh(Request())
+        return build('gmail', 'v1', credentials=creds)
+    except Exception as e:
+        raise e
+    
+def get_user_service(user_email, tb_name='source'):
+    """_summary_
+
+    Args:
+        user_email (_type_): _description_
+    
+    Returns:
+        _type_: _description_
+    """
+    try:
+        
+            # import pdb; pdb.set_trace()
+            source = check_token(tb_name, user_email)
+            # print('SourceMail obj found')
+            print(f'::::::::: Source_obj--> {source[0]}:::::::::')
+            try:
+                creds = pickle.loads(source[0][6])
+                return create_service(creds)
+            except:
+                return authenticate_user(source)
+                     
+    except Exception as e:
+        print(e)
+        traceback.print_exc()
 
 
 
@@ -179,7 +244,7 @@ def send_message(service, destination, obj, body, attachments=[]):
     return send_message
 
 
-def show_chatty_threads():
+def show_chatty_threads(service):
     """Display threads with long conversations(>= 3 messages)
     Return: None
 
@@ -233,7 +298,7 @@ def send_message_thread(service, destination, subject, body, thread_id,msg_id_3)
       body=create_thread_message(destination,subject, body, True, thread_id, msg_id_3)
     ).execute()
 
-def get_msg_id_header(service,email_id):
+def get_msg_headers(service,email_id):
     data = dict()
     msg = service.users().messages().get(userId="me", id=email_id, format="full").execute()
     if msg:
@@ -256,12 +321,43 @@ def get_msg_id_header(service,email_id):
         return data
     return None
 
+def get_thread(service, email_id=None, thread_id=None):
+    if email_id is not None:
+        msg = service.users().messages().get(userId="me", id=email_id, format="full").execute()
+        thread_id = msg['threadId']
+    
+    thread = service.users().threads().get(userId='me', id=thread_id).execute()
+    thread_msgs = thread['messages']
+#     print(type(thread_msgs))
+#     print(len(thread_msgs))
+    messages = dict()
+#     print(thread_msgs)
+    for idx, msg in enumerate(thread_msgs):
+        messages[idx] = {}
+        messages[idx]['snippet'] = msg['snippet']
+        headers = msg['payload'].get("headers")
+    #     print(headers)
+        for header in headers:
+            if header['name'] == 'Message-ID':
+                messages[idx]['Message-ID'] = header.get("value")
+            if header['name'] == 'From':
+                messages[idx]['From'] = header.get("value")
+            if header['name'] == 'To':
+                messages[idx]['To'] = header.get("value")
+            if header['name'] == 'Subject':
+                messages[idx]['Subject'] = header.get("value")
+            if header['name'] == 'Date':
+                messages[idx]['Date'] = header.get("value")
+            if header['name'] == 'Content-Type':
+                messages[idx]['Content-Type'] = header.get("value")
+        return messages
+
 
 if __name__ == '__main__':
     # main()
     # get the Gmail API service
 
-    service = authenticate_user() 
+    # service = authenticate_user() 
     # msg = send_message(service, "furqanaz456@gmail.com", "Hey 2",
     #         "Message Sent 2.")
     # print(msg)  
@@ -287,4 +383,7 @@ if __name__ == '__main__':
 # Message Sent 2.
 # ----
 # """, thread_id, msg_id_1)
-
+    email = 'invozone.ht@gmail.com'
+    data = check_token('source', email)
+    # print(data)
+    print(data[0])
