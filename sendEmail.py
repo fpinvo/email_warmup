@@ -38,9 +38,12 @@ def check_token(tb_name,email):
 
 def create_token(table_name, email, pickled_creds, esp='gmail'):
     time = datetime.datetime.now()
-    query = f'INSERT INTO {table_name} (email, e_type, pickle, create_at) VALUES ("{email}", "{esp}", {pickled_creds}, "{time}");'
+    query = """ INSERT INTO {table_name} (email, e_type, pickle, create_at)\
+    VALUES (%s,%s,%s,%s)"""
+    # query = f'INSERT INTO {table_name} (email, e_type, pickle, create_at) VALUES ("{email}", "{esp}", {pickled_creds}, "{time}");'
     print(f'create_token:::::{query}::::')
-    db.commit(query)
+    params = [email, esp, pickled_creds, time]
+    db.commit(query, params)
 
 def update_token(table_name, email, pickled_data):
     time = datetime.datetime.now()
@@ -276,15 +279,23 @@ def show_chatty_threads(service):
     except HttpError as error:
         print(F'An error occurred: {error}')
 
-def create_thread_message(to, subject, body, reply_to, thread_id, message_id):
-    message = MIMEText(body, 'html')
-    message['to'] = to
-    message['from'] = our_email
-    message['subject'] = f'Re: {subject}'
-
+def create_thread_message(sender, to, subject, body, reply_to, thread_id, message_id, attachments=[]):
+    if not attachments: # no attachments given
+        message = MIMEText(body)
+        message['From'] = sender
+        message['To'] = to
+        message['Subject'] = subject
+    else:
+        message = MIMEMultipart()
+        message['From'] = sender
+        message['To'] = to
+        message['Subject'] = subject
+        message.attach(MIMEText(body))
+        for filename in attachments:
+            add_email_attachment(message, filename)
     if reply_to:
 #         message['threadId'] = thread_id
-        
+        message['Subject'] = f'Re: {subject}'
         message['In-Reply-To'] = message_id
         message['References'] = message_id
 
@@ -292,27 +303,37 @@ def create_thread_message(to, subject, body, reply_to, thread_id, message_id):
 
     return {'raw': urlsafe_b64encode(message.as_bytes()).decode()}
 
-def send_message_thread(service, destination, subject, body, thread_id,msg_id_3):
-    return service.users().messages().send(
-      userId="me",
-      body=create_thread_message(destination,subject, body, True, thread_id, msg_id_3)
-    ).execute()
+def send_thread_message(service, sender, to, subject, body, reply_to,thread_id, msg_id):
+    try:
+        message = create_thread_message(sender, to, subject, body, reply_to, thread_id, msg_id)
+        print(message)
+        send_message = service.users().messages().send(
+          userId="me",
+          body= message).execute()
+    
+        print(F'Message Id: {send_message["id"]}')
+    except HttpError as error:
+        print(F'An error occurred: {error}')
+        send_message = None
+    return send_message
 
 def get_msg_headers(service,email_id):
     data = dict()
     msg = service.users().messages().get(userId="me", id=email_id, format="full").execute()
     if msg:
         data['snippet'] = msg['snippet']
+        data['threadId'] = msg['threadId']
         headers = msg['payload'].get("headers")
-        print(headers)
+    #     print(headers)
         for header in headers:
-            if header['name'] == 'Message-ID' or "Message-Id":
+            if header['name'] == 'Message-ID' or header['name'] == 'Message-Id':
                 data['Message-ID'] = header.get("value")
-            if header['name'] == 'From' or 'from':
+                
+            if header['name'] == "From" or header['name'] == "from":
                 data['From'] = header.get("value")
-            if header['name'] == 'To' or 'to':
+            if header['name'] == 'To' or header['name'] == 'to':
                 data['To'] = header.get("value")
-            if header['name'] == 'Subject' or 'subject':
+            if header['name'] == 'Subject' or header['name'] == 'subject':
                 data['Subject'] = header.get("value")
             if header['name'] == 'Date':
                 data['Date'] = header.get("value")
@@ -328,29 +349,26 @@ def get_thread(service, email_id=None, thread_id=None):
     
     thread = service.users().threads().get(userId='me', id=thread_id).execute()
     thread_msgs = thread['messages']
-#     print(type(thread_msgs))
-#     print(len(thread_msgs))
     messages = dict()
 #     print(thread_msgs)
     for idx, msg in enumerate(thread_msgs):
         messages[idx] = {}
         messages[idx]['snippet'] = msg['snippet']
         headers = msg['payload'].get("headers")
-    #     print(headers)
         for header in headers:
-            if header['name'] == 'Message-ID':
+            if header['name'] == 'Message-ID' or header['name'] == 'Message-Id':
                 messages[idx]['Message-ID'] = header.get("value")
-            if header['name'] == 'From':
+            if header['name'] == "From" or header['name'] == "from":
                 messages[idx]['From'] = header.get("value")
-            if header['name'] == 'To':
+            if header['name'] == 'To' or header['name'] == 'to':
                 messages[idx]['To'] = header.get("value")
-            if header['name'] == 'Subject':
+            if header['name'] == 'Subject' or header['name'] == 'subject':
                 messages[idx]['Subject'] = header.get("value")
             if header['name'] == 'Date':
                 messages[idx]['Date'] = header.get("value")
             if header['name'] == 'Content-Type':
                 messages[idx]['Content-Type'] = header.get("value")
-        return messages
+    return messages
 
 
 if __name__ == '__main__':
@@ -384,6 +402,6 @@ if __name__ == '__main__':
 # ----
 # """, thread_id, msg_id_1)
     email = 'invozone.ht@gmail.com'
-    data = check_token('source', email)
+    data = check_token('source', email) 
     # print(data)
     print(data[0])

@@ -47,7 +47,7 @@ class Campaign:
         service = self.sendEmail()
         if source_camp:
             result = self.data.select_all("Select * from gmailThreadId where id ="+str(source_camp[0][5]))
-            message = sendEmail.get_msg_id_header(service,str(result[0][1]))
+            message = sendEmail.get_msg_headers(service,str(result[0][1]))
             print("message",str(result[0][1]))
             print(message)
             print(self.source_email[0][2], self.subject,self.Body, str(result[0][2]), str(message['Message-Id']))
